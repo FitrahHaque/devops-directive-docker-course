@@ -25,13 +25,13 @@ DOCKERFILE_DIR:=../06-building-container-images/
 docker-build-all:
 	docker build -t client-react-vite -f ${DOCKERFILE_DIR}/client-react/Dockerfile.3 ${DOCKERCONTEXT_DIR}/client-react/
 
-	docker build -t client-react-ngnix -f ${DOCKERFILE_DIR}/client-react/Dockerfile.5 ${DOCKERCONTEXT_DIR}/client-react/
+	docker build -t client-react-nginx -f ${DOCKERFILE_DIR}/client-react/Dockerfile.5 ${DOCKERCONTEXT_DIR}/client-react/
 
 	docker build -t api-node -f ${DOCKERFILE_DIR}/api-node/Dockerfile.7 ${DOCKERCONTEXT_DIR}/api-node/
 
 	docker build -t api-golang -f ${DOCKERFILE_DIR}/api-golang/Dockerfile.6 ${DOCKERCONTEXT_DIR}/api-golang/
 
-DATABASE_URL:=postgres://postgres:foobarbaz@db:5432/postgres
+DATABASE_URL:=postgres://postgres:foobar@db:5432/postgres
 
 .PHONY: docker-run-all
 docker-run-all:
@@ -47,7 +47,7 @@ docker-run-all:
 	docker run -d \
 		--name db \
 		--network my-network \
-		-e POSTGRES_PASSWORD=foobarbaz \
+		-e POSTGRES_PASSWORD=foobar \
 		-v pgdata:/var/lib/postgresql/data \
 		-p 5432:5432 \
 		--restart unless-stopped \
@@ -59,6 +59,7 @@ docker-run-all:
 		-e DATABASE_URL=${DATABASE_URL} \
 		-p 3000:3000 \
 		--restart unless-stopped \
+		--link=db \
 		api-node
 
 	docker run -d \
@@ -67,6 +68,7 @@ docker-run-all:
 		-e DATABASE_URL=${DATABASE_URL} \
 		-p 8080:8080 \
 		--restart unless-stopped \
+		--link=db \
 		api-golang
 
 	docker run -d \
@@ -75,6 +77,8 @@ docker-run-all:
 		-v ${PWD}/client-react/vite.config.js:/usr/src/app/vite.config.js \
 		-p 5173:5173 \
 		--restart unless-stopped \
+		--link=api-node \
+		--link=api-golang \
 		client-react-vite
 
 	docker run -d \
@@ -82,7 +86,9 @@ docker-run-all:
 		--network my-network \
 		-p 80:8080 \
 		--restart unless-stopped \
-		client-react-ngnix
+		--link=api-node \
+		--link=api-golang \
+		client-react-nginx
 
 .PHONY: docker-stop
 docker-stop:
@@ -100,6 +106,12 @@ docker-rm:
 	-docker container rm client-react-vite
 	-docker container rm client-react-nginx
 	-docker network rm my-network
+
+docker-stop-and-rm-nginx:
+	-docker stop client-react-nginx
+	-docker container rm client-react-nginx
+	-docker rmi client-react-nginx
+	-docker image ls client-react-nginx
 
 define DOCKER_COMPOSE_NOTE
 
